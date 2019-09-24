@@ -19,5 +19,4 @@ class MaskedMLP(BaseModel):
 	def forward(self, x):
 		x = x.view(len(x), -1)
 		x = self.fc(x)
-
 		return x
