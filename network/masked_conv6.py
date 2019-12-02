@@ -40,3 +40,30 @@ class MaskedConv6(BaseModel):
 		x = self.fc3(x)
 		return x
 
+	def forward_activation(self, x):
+		act = []
+		x = F.relu(self.conv1(x))
+		act.append((x.data > 0).sum(dim=0))
+		x = F.relu(self.conv2(x))
+		act.append((x.data > 0).sum(dim=0))
+		x = self.pool1(x)
+
+		x = F.relu(self.conv3(x))
+		act.append((x.data > 0).sum(dim=0))
+		x = F.relu(self.conv4(x))
+		act.append((x.data > 0).sum(dim=0))
+		x = self.pool2(x)
+
+		x = F.relu(self.conv5(x))
+		act.append((x.data > 0).sum(dim=0))
+		x = F.relu(self.conv6(x))
+		act.append((x.data > 0).sum(dim=0))
+		x = self.pool3(x)
+
+		x = x.view(x.size(0), -1)
+		x = F.relu(self.fc1(x))
+		act.append((x.data > 0).sum(dim=0))
+		x = F.relu(self.fc2(x))
+		act.append((x.data > 0).sum(dim=0))
+		x = self.fc3(x)
+		return act

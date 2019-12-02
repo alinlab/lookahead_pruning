@@ -39,7 +39,10 @@ def main():
 
 	# define dataset and network
 	train_dataset, test_dataset = get_dataset(args.dataset)
-	network, prune_ratios, optimizer, pretrain_iteration, finetune_iteration, batch_size = get_hyperparameters(args.network)
+	if args.pruning_type == 'global':
+		network, prune_ratios, optimizer, pretrain_iteration, finetune_iteration, batch_size = get_hyperparameters(args.network + '_global')
+	else:
+		network, prune_ratios, optimizer, pretrain_iteration, finetune_iteration, batch_size = get_hyperparameters(args.network)
 
 	# load pre-trained network
 	base_path = f'./checkpoint/{args.dataset}_{args.network}_{args.pruning_type}_{args.seed}'
@@ -114,8 +117,10 @@ def main():
 				else:
 					assert False
 
-		if 'bn' in args.method:
-			assert 'obd' not in args.method  # OBD for BN is not implemented
+		if 'obd' in args.method:
+			assert 'bn' not in args.method  # OBD for BN is not implemented
+			masks = pruning_method(deepcopy(network), train_dataset, prune_ratios, args.network, args.dataset)
+		elif 'bn' in args.method:
 			masks = pruning_method(weights, masks, prune_ratios, network.get_bn_weights())
 		else:
 			masks = pruning_method(weights, masks, prune_ratios)

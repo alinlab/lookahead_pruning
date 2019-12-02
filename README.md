@@ -38,8 +38,8 @@ python main.py --dataset mnist --network mlp --method lap_act
 
 Run global pruning experiments
 ```
-python main.py --dataset mnist --network mlp_global --method mp_global_normalize
-python main.py --dataset mnist --network mlp_global --method lap_global_normalize
+python main.py --dataset mnist --network mlp --pruning_type global --method mp_global_normalize
+python main.py --dataset mnist --network mlp --pruning_type global --method lap_global_normalize
 ```
 
 Results are saved in
