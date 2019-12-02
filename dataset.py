@@ -27,6 +27,20 @@ def get_dataset(dataset, normalize=True):
 		train_dataset = datasets.CIFAR10('./dataset/cifar10', train=True, download=True, transform=transform_train)
 		test_dataset = datasets.CIFAR10('./dataset/cifar10', train=False, download=True, transform=transform_test)
 
+	elif dataset == 'tiny-imagenet':
+		transform_train = T.Compose([
+			T.RandomResizedCrop(64),
+			T.RandomHorizontalFlip(),
+			T.ToTensor(),
+			T.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))],
+		)
+		transform_test = T.Compose([
+			T.ToTensor(),
+			T.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))],
+		)
+		train_dataset = datasets.ImageFolder('./data/tiny-imagenet-200/train', transform_train)
+		test_dataset = datasets.ImageFolder('./data/tiny-imagenet-200/val', transform_test)
+
 	else:
 		raise ValueError('Unknown dataset')
 

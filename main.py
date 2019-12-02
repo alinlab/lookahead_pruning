@@ -9,10 +9,11 @@ import torch
 import torch.optim as optim
 
 from dataset import get_dataset
-from network import *
 from train import train, test
 from method import get_method
 from utils import get_sparsity
+from hyperparameter import get_hyperparameters
+from activation import get_activation
 
 
 def main():
@@ -22,6 +23,7 @@ def main():
 	parser.add_argument('--dataset', type=str, default='mnist', help='dataset (mnist|fmnist|cifar10)')
 	parser.add_argument('--network', type=str, default='mlp', help='network (mlp|lenet|conv6|vgg19|resnet18)')
 	parser.add_argument('--method', type=str, default='mp', help='method (mp|rp|labp)')
+	parser.add_argument('--pruning_type', type=str, default='oneshot', help='(oneshot|iterative|global)')
 	parser.add_argument('--pruning_iteration_start', type=int, default=1, help='start iteration for pruning')
 	parser.add_argument('--pruning_iteration_end', type=int, default=30, help='end iteration for pruning')
 	args = parser.parse_args()
@@ -37,68 +39,10 @@ def main():
 
 	# define dataset and network
 	train_dataset, test_dataset = get_dataset(args.dataset)
-
-	if args.network == 'mlp':
-		network = MaskedMLP([784, 500, 500, 500, 500, 10]).cuda()
-		prune_ratios = [.5, .5, .5, .5, .25]
-		optimizer = partial(optim.Adam, lr=0.0012)
-		pretrain_iteration = 50000
-		finetune_iteration = 50000
-		batch_size = 60
-
-	elif args.network == 'lenet':
-		network = MaskedLeNet().cuda()
-		prune_ratios = [.2, .2, .3, .3, .15]
-		optimizer = partial(optim.Adam, lr=0.0012)
-		pretrain_iteration = 50000
-		finetune_iteration = 50000
-		batch_size = 60
-
-	elif args.network == 'conv6':
-		network = MaskedConv6().cuda()
-		prune_ratios = [.15, .15, .15, .15, .15, .15, .20, .20, .10]
-		optimizer = partial(optim.Adam, lr=0.0003)
-		pretrain_iteration = 30000
-		finetune_iteration = 20000
-		batch_size = 60
-
-	elif args.network == 'vgg11':
-		network = MaskedVGG11(use_bn=True).cuda()
-		prune_ratios = [.15] * 8 + [.10]
-		optimizer = partial(optim.Adam, lr=0.0003)
-		pretrain_iteration = 35000
-		finetune_iteration = 25000
-		batch_size = 60
-
-	elif args.network == 'vgg16':
-		network = MaskedVGG16(use_bn=True).cuda()
-		prune_ratios = [.15] * 13 + [.10]
-		optimizer = partial(optim.Adam, lr=0.0003)
-		pretrain_iteration = 50000
-		finetune_iteration = 35000
-		batch_size = 60
-
-	elif args.network == 'vgg19':
-		network = MaskedVGG19(use_bn=True).cuda()
-		prune_ratios = [.15] * 16 + [.10]
-		optimizer = partial(optim.Adam, lr=0.0003)
-		pretrain_iteration = 60000
-		finetune_iteration = 40000
-		batch_size = 60
-
-	elif args.network == 'resnet18':
-		network = MaskedResNet18().cuda()
-		prune_ratios = [0] + [.15] * 16 + [.10]
-		optimizer = partial(optim.Adam, lr=0.0003)
-		pretrain_iteration = 35000
-		finetune_iteration = 25000
-		batch_size = 60
-
-	else:
-		raise ValueError('Unknown network')
+	network, prune_ratios, optimizer, pretrain_iteration, finetune_iteration, batch_size = get_hyperparameters(args.network)
 
 	# load pre-trained network
-	base_path = f'./checkpoint/{args.dataset}_{args.network}_{args.seed}'
+	base_path = f'./checkpoint/{args.dataset}_{args.network}_{args.pruning_type}_{args.seed}'
 	if not os.path.exists(base_path):
 		os.makedirs(base_path)
 
@@ -130,15 +74,52 @@ def main():
 	for it in range(args.pruning_iteration_start, args.pruning_iteration_end + 1):
 		print(f'Pruning iter. {it}')
 
-		network = deepcopy(original_network).cuda()  # copy original network
-		prune_ratios = []  # prune ratio for current iteration
-		for idx in range(len(original_prune_ratio)):
-			prune_ratios.append(1.0 - ((1.0 - original_prune_ratio[idx]) ** it))
+		# get pruning ratio for current iteration
+		# list for layer-wise pruning, and constant for global pruning
+		if args.pruning_type == 'oneshot':
+			network = deepcopy(original_network).cuda()
+			prune_ratios = []
+			for idx in range(len(original_prune_ratio)):
+				prune_ratios.append(1.0 - ((1.0 - original_prune_ratio[idx]) ** it))
+		elif args.pruning_type == 'iterative':
+			prune_ratios = []
+			for idx in range(len(original_prune_ratio)):
+				prune_ratios.append(original_prune_ratio[idx])
+		elif args.pruning_type == 'global':
+			network = deepcopy(original_network).cuda()
+			prune_ratios = [original_prune_ratio[it - 1]]
+		else:
+			raise ValueError('Unknown pruning_type')
+
+		# perpare weights and masks to prune
+		weights = network.get_weights()
+		masks = network.get_masks()
+
+		if 'lap_act' in args.method:
+			act_rate = get_activation(network, train_dataset)
+			assert len(act_rate) == len(weights) - 1
+			for i in range(len(weights) - 1):
+				if len(act_rate[i].shape) == 1:
+					act = act_rate[i].sqrt()
+					size = list(act.shape)
+					size = [size[0], 1]
+					act = act.view(size).repeat([1, weights[i].shape[1]])
+					weights[i] *= act
+				elif len(act_rate[i].shape) == 3:
+					act = act_rate[i].sqrt().sum(dim=1).sum(dim=1)
+					size = list(act.shape)
+					size = [size[0], 1, 1, 1]
+					act = act.view(size).repeat([1, weights[i].shape[1], weights[i].shape[2], weights[i].shape[3]])
+					weights[i] *= act
+				else:
+					assert False
 
 		if 'bn' in args.method:
-			masks = pruning_method(network.get_weights(), network.get_masks(), prune_ratios, network.get_bn_weights())
+			assert 'obd' not in args.method  # OBD for BN is not implemented
+			masks = pruning_method(weights, masks, prune_ratios, network.get_bn_weights())
 		else:
-			masks = pruning_method(network.get_weights(), network.get_masks(), prune_ratios)
+			masks = pruning_method(weights, masks, prune_ratios)
+
 		network.set_masks(masks)
 
 		sparsity = get_sparsity(network)
