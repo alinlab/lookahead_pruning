@@ -2,7 +2,7 @@
 
 PyTorch implementation of ["Lookahead: A Far-sighted Alternative of Magnitude-based Pruning"](https://openreview.net/forum?id=ryl3ygHYDB) (ICLR 2020).
 
-The code was written by [Sejun Park](https://github.com/sejunpark-repository), [Jaeho Lee](https://github.com/jaeho-lee), and [Sangwoo Mo](https://github.com/sangwoomo).
+The code was written by [Sejun Park](https://sites.google.com/site/sejunparksite), [Jaeho Lee](https://jaeho-lee.github.io), and [Sangwoo Mo](https://sites.google.com/view/sangwoomo).
 
 ## Installation
 
