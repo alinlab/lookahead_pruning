@@ -1,8 +1,11 @@
 # Lookahead Pruning (LAP)
 
-PyTorch implementation of ["Lookahead: A Far-sighted Alternative of Magnitude-based Pruning"](https://openreview.net/forum?id=ryl3ygHYDB) (ICLR 2020).
+Official PyTorch implementation of ["Lookahead: A Far-sighted Alternative of Magnitude-based Pruning"](https://openreview.net/forum?id=ryl3ygHYDB) (ICLR 2020) by [Sejun Park*](https://sites.google.com/site/sejunparksite), [Jaeho Lee*](https://jaeho-lee.github.io), [Sangwoo Mo](https://sites.google.com/view/sangwoomo), and [Jinwoo Shin](http://alinlab.kaist.ac.kr/shin.html).
 
-The code was written by [Sejun Park](https://sites.google.com/site/sejunparksite), [Jaeho Lee](https://jaeho-lee.github.io), and [Sangwoo Mo](https://sites.google.com/view/sangwoomo).
+<p align="center">
+    <img src=./figs/LAP.png width="900">
+</p>
+
 
 ## Installation
 
